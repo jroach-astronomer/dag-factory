@@ -214,6 +214,23 @@ class DagBuilder:
                     import_string(dag_params["default_args"]["on_failure_callback"])
                 )
 
+            elif isinstance(dag_params["default_args"]["on_failure_callback"], dict):
+                # Pull the on_failure_callback dictionary from dag_params
+                on_failure_callback_params: dict = dag_params["default_args"]["on_failure_callback"]
+
+                # Check to see if there is a "callable" key in the on_failure_callback dictionary. If there is, parse
+                # out that callable, and add the parameters
+                if utils.check_dict_key(on_failure_callback_params, "callable"):
+                    if isinstance(on_failure_callback_params["callable"], str):
+                        on_failure_callback_callable: Callable = import_string(on_failure_callback_params["callable"])
+                        del on_failure_callback_params["callable"]
+
+                        # Return the callable, this time, using the params provided in the YAML file, rather than a .py
+                        # file with a callable configured
+                        dag_params["default_args"]["on_failure_callback"]: Callable = (
+                            on_failure_callback_callable(**on_failure_callback_params)
+                        )
+
         if utils.check_dict_key(dag_params["default_args"], "on_retry_callback"):
             if isinstance(dag_params["default_args"]["on_retry_callback"], str):
                 dag_params["default_args"]["on_retry_callback"]: Callable = (

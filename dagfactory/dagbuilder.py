@@ -6,6 +6,7 @@ import re
 from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import Any, Callable, Dict, List, Union
+from functools import partial
 
 from airflow import DAG, configuration
 from airflow.models import BaseOperator, Variable
@@ -214,6 +215,8 @@ class DagBuilder:
                     import_string(dag_params["default_args"]["on_failure_callback"])
                 )
 
+            # For now, going to hold this out and get it into the DAG-level config
+            """
             elif isinstance(dag_params["default_args"]["on_failure_callback"], dict):
                 # Pull the on_failure_callback dictionary from dag_params
                 on_failure_callback_params: dict = dag_params["default_args"]["on_failure_callback"]
@@ -230,6 +233,7 @@ class DagBuilder:
                         dag_params["default_args"]["on_failure_callback"]: Callable = (
                             on_failure_callback_callable(**on_failure_callback_params)
                         )
+            """
 
         if utils.check_dict_key(dag_params["default_args"], "on_retry_callback"):
             if isinstance(dag_params["default_args"]["on_retry_callback"], str):
@@ -254,6 +258,25 @@ class DagBuilder:
                 dag_params["on_failure_callback"]: Callable = import_string(
                     dag_params["on_failure_callback"]
                 )
+
+            # Try to see if there are additional key-value pairs passed to on_failure_callback. If so, use those
+            # parameters when importing the callable
+            elif isinstance(dag_params["on_failure_callback"], dict):
+                # Pull the on_failure_callback dictionary from dag_params
+                on_failure_callback_params: dict = dag_params["on_failure_callback"]
+
+                # Check to see if there is a "callable" key in the on_failure_callback dictionary. If there is, parse
+                # out that callable, and add the parameters
+                if utils.check_dict_key(on_failure_callback_params, "callable"):
+                    if isinstance(on_failure_callback_params["callable"], str):
+                        on_failure_callback_callable: Callable = import_string(on_failure_callback_params["callable"])
+                        del on_failure_callback_params["callable"]
+
+                        # Return the callable, this time, using the params provided in the YAML file, rather than a .py
+                        # file with a callable configured
+                        dag_params["on_failure_callback"]: Callable = (
+                            partial(on_failure_callback_callable, **on_failure_callback_params)
+                        )
 
         if utils.check_dict_key(
             dag_params, "on_success_callback_name"

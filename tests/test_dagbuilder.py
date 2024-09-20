@@ -1,3 +1,4 @@
+import functools
 import os
 import datetime
 from unittest.mock import patch
@@ -212,8 +213,6 @@ DAG_CONFIG_CALLBACK_WITH_PARAMETERS = {
         "param_1": "value_1",
         "param_2": "value_2"
     },
-    # "on_success_callback": f"{__name__}.print_context_callback",
-    # "sla_miss_callback": f"{__name__}.print_context_callback",
     "tasks": {
         "task_1": {
             "operator": "airflow.operators.bash_operator.BashOperator",
@@ -767,6 +766,10 @@ def test_replace_expand_string_with_xcom():
 
 
 def test_on_failure_callback():
+    # Import the DAG using the callback config that was build above
     td = dagbuilder.DagBuilder("test_dag", DAG_CONFIG_CALLBACK_WITH_PARAMETERS, DEFAULT_CONFIG)
     td.build()
-    print("------------- ON_FAILURE_CALLBACK OUTPUT -------------\n", td.dag_config)
+
+    # Assert different parts of the
+    assert "on_failure_callback" in td.dag_config
+    assert isinstance(td.dag_config["on_failure_callback"], functools.partial)
